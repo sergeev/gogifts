@@ -5,6 +5,7 @@ import (
 	"../storage"
 	"fmt"
 	"github.com/gorilla/securecookie"
+	"log"
 	"net/http"
 )
 
@@ -13,6 +14,14 @@ var cookieHandler = securecookie.New(
 	securecookie.GenerateRandomKey(32))
 
 // Handlers
+func Logger(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		log.Printf("Server: [net/http] method [%s] connection from [%v]", r.Method, r.RemoteAddr)
+
+		next.ServeHTTP(w, r)
+	}
+}
 
 // for GET
 func LoginPageHandler(response http.ResponseWriter, request *http.Request) {
@@ -29,10 +38,12 @@ func LoginHandler(response http.ResponseWriter, request *http.Request) {
 		// Database check for user data!
 		_userIsValid := storage.UserIsValid(name, pass)
 
+		// Пользователь вошел в систему, перенаправляем на index
 		if _userIsValid {
 			SetCookie(name, response)
 			redirectTarget = "/index"
 		} else {
+			// Не валидный вход, кидаем на регистрацию
 			redirectTarget = "/register"
 		}
 	}
@@ -72,24 +83,40 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 
 // for GET
 func IndexPageHandler(response http.ResponseWriter, request *http.Request) {
+	// Проверка пользователя в базе
 	userName := GetUserName(request)
 	if !helpers.IsEmpty(userName) {
+		// пользователь найден, загружаем index.gohtml
 		var indexBody, _ = helpers.LoadFile("tpl/index.gohtml")
 		fmt.Fprintf(response, indexBody, userName)
 	} else {
+		// Данного пользователя нет!
+		http.Redirect(response, request, "/", 302)
+	}
+}
+
+func ManageHandler(response http.ResponseWriter, request *http.Request) {
+	// Проверка пользователя в базе
+	userName := GetUserName(request)
+	if !helpers.IsEmpty(userName) {
+		var indexBody, _ = helpers.LoadFile("tpl/manage.gohtml")
+		fmt.Fprintf(response, indexBody, userName)
+	} else {
+		// Данного пользователя нет!
 		http.Redirect(response, request, "/", 302)
 	}
 }
 
 // for POST
 func LogoutHandler(response http.ResponseWriter, request *http.Request) {
+	// Очищаем кэш и выходим из учетной записи
 	ClearCookie(response)
 	http.Redirect(response, request, "/", 302)
 }
 
 // Cookie
-
 func SetCookie(userName string, response http.ResponseWriter) {
+	// грузим мап и кэш
 	value := map[string]string{
 		"name": userName,
 	}
@@ -104,6 +131,7 @@ func SetCookie(userName string, response http.ResponseWriter) {
 }
 
 func ClearCookie(response http.ResponseWriter) {
+	// очищаем кэш
 	cookie := &http.Cookie{
 		Name:   "cookie",
 		Value:  "",
