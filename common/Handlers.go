@@ -1,12 +1,13 @@
 package handlers
 
 import (
-	"../helpers"
-	"../storage"
 	"fmt"
-	"github.com/gorilla/securecookie"
 	"log"
 	"net/http"
+
+	"../helpers"
+	"../storage"
+	"github.com/gorilla/securecookie"
 )
 
 var cookieHandler = securecookie.New(
@@ -56,9 +57,19 @@ func RegisterPageHandler(response http.ResponseWriter, request *http.Request) {
 	fmt.Fprintf(response, body)
 }
 
-// for POST
+type accountSP struct {
+	databaseUsername string
+	//databasePassword string
+}
+
+// for POST регистация в системе
 func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
+
+	uName := r.ParseForm()
+	pwd := r.ParseForm()
+
+	var accSP accountSP
 
 	uName := r.FormValue("username")
 	email := r.FormValue("email")
